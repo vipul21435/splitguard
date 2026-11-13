@@ -65,3 +65,17 @@ def test_load_splits_with_id_field(tmp_path):
     )
     assert ds.split_names == ["train", "holdout"]
     assert ds.ids == ["7", "8"]
+
+
+def test_subset_drops_empty_splits():
+    from splitguard.data import subset
+
+    ds = from_rows(
+        [("a", [{"t": "x"}]), ("b", [{"t": "y"}, {"t": "z"}]), ("c", [{"t": "w"}])],
+        ["t"],
+        group_fields=[],
+    )
+    sub = subset(ds, [3, 1])
+    assert sub.split_names == ["b", "c"]
+    assert sub.split == [1, 0]
+    assert sub.ids == ["c:0", "b:0"]

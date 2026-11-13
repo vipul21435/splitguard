@@ -175,3 +175,19 @@ def load_splits(
         label_field=label_field,
         group_fields=group_fields,
     )
+
+
+def subset(ds: Dataset, index: Sequence[int]) -> Dataset:
+    """The records at ``index``, keeping only the splits that still hold a record."""
+    idx = list(index)
+    used = sorted({ds.split[i] for i in idx})
+    remap = {old: new for new, old in enumerate(used)}
+    return Dataset(
+        split_names=[ds.split_names[s] for s in used],
+        split=[remap[ds.split[i]] for i in idx],
+        ids=[ds.ids[i] for i in idx],
+        fields=list(ds.fields),
+        values=[ds.values[i] for i in idx],
+        labels=[ds.labels[i] for i in idx],
+        groups={g: [vals[i] for i in idx] for g, vals in ds.groups.items()},
+    )
