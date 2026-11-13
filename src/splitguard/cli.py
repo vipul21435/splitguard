@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import json
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -12,9 +13,10 @@ import numpy as np
 
 from . import __version__
 from .audit import AuditConfig, audit, build_links
-from .data import Dataset, load_splits
+from .data import Dataset, load_splits, parse_split_spec, read_rows
 from .graph import ComponentSummary, link_components
-from .report import audit_markdown, components_markdown, dumps
+from .report import audit_markdown, components_markdown, dumps, resplit_markdown
+from .resplit import parse_sizes, resplit
 
 
 def _add_input(p: argparse.ArgumentParser) -> None:
@@ -116,6 +118,56 @@ def cmd_components(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_resplit(
+    ds: Dataset, cfg: AuditConfig, targets: dict[str, float], label_weight: float, seed: int
+) -> tuple[dict, np.ndarray]:
+    summary = summarise_components(ds, cfg)
+    r = resplit(summary.labels, targets, ds.labels, label_weight=label_weight, seed=seed)
+    d = r.to_dict()
+    after = ComponentSummary(summary.labels, r.assign, r.names, ds.ids)
+    d["components"] = int(len(summary.sizes))
+    d["largest_component"] = int(summary.sizes.max()) if len(summary.sizes) else 0
+    d["crossing_before"] = int(len(summary.crossing)) if len(ds.split_names) > 1 else 0
+    d["crossing_after"] = int(len(after.crossing))
+    d["settings"] = {**cfg.as_dict(), "label_weight": label_weight, "resplit_seed": seed}
+    return d, r.assign
+
+
+def cmd_resplit(args: argparse.Namespace) -> int:
+    ds = _load(args)
+    if args.sizes:
+        targets = parse_sizes(args.sizes)
+    elif len(ds.split_names) >= 2:
+        targets = {k: float(v) for k, v in ds.split_sizes().items()}
+    else:
+        raise SystemExit("one input file: give the new splits with --sizes train=0.8,test=0.2")
+    d, assign = run_resplit(ds, _config(args), targets, args.label_weight, args.seed)
+    _emit(dumps(d) if args.format == "json" else resplit_markdown(d), args.out)
+    if args.out_dir:
+        out_dir = Path(args.out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        names = list(targets)
+        handles = {k: open(out_dir / f"{k}.jsonl", "w", encoding="utf-8") for k in names}
+        try:
+            i = 0
+            for spec in args.splits:
+                for row in read_rows(parse_split_spec(spec)[1]):
+                    handles[names[assign[i]]].write(
+                        json.dumps(row, ensure_ascii=False, default=str)
+                    )
+                    handles[names[assign[i]]].write("\n")
+                    i += 1
+        finally:
+            for fh in handles.values():
+                fh.close()
+        with open(out_dir / "assignment.csv", "w", encoding="utf-8", newline="") as fh:
+            w = csv.writer(fh)
+            w.writerow(["id", "old_split", "new_split"])
+            for i in range(len(ds)):
+                w.writerow([ds.ids[i], ds.split_names[ds.split[i]], names[assign[i]]])
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="splitguard",
@@ -139,6 +191,21 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--examples", type=int, default=5, help="largest crossing components to list")
     p.add_argument("--write-labels", help="write id,split,component rows to this CSV file")
     p.set_defaults(func=cmd_components)
+
+    p = sub.add_parser("resplit", help="assign whole components to new splits")
+    _add_input(p)
+    _add_links(p)
+    _add_output(p)
+    p.add_argument(
+        "--sizes",
+        help="new splits as name=fraction or name=count, comma-separated "
+        "(default: the input split names and sizes)",
+    )
+    p.add_argument(
+        "--label-weight", type=float, default=1.0, help="weight of label balance (0 = ignore)"
+    )
+    p.add_argument("--out-dir", help="write <split>.jsonl files and assignment.csv here")
+    p.set_defaults(func=cmd_resplit)
     return parser
 
 

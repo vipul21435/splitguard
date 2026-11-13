@@ -101,3 +101,30 @@ def components_markdown(d: dict[str, Any]) -> str:
                 f"- {comp['size']} records ({split_counts}): {', '.join(comp['ids'])}{more}"
             )
     return "\n".join(lines) + "\n"
+
+
+def resplit_markdown(d: dict[str, Any]) -> str:
+    lines = [
+        "# Re-split",
+        "",
+        f"{d['records']} records in {d['components']} components (largest "
+        f"{d['largest_component']} records); every component placed whole. Components that "
+        f"cross the new splits: {d['crossing_after']} (before: {d['crossing_before']}).",
+        "",
+        "| split | target | records | fraction | size error | label gap |",
+        "|---|---:|---:|---:|---:|---:|",
+    ]
+    for row in d["splits"]:
+        gap = _pct(row.get("label_gap")) if "label_gap" in row else "-"
+        lines.append(
+            f"| {row['split']} | {_pct(row['target_fraction'])} | {row['records']} | "
+            f"{_pct(row['fraction'])} | {100 * row['size_error']:+.2f} % | {gap} |"
+        )
+    if "label_mix_overall" in d:
+        mix = ", ".join(f"{k} {_pct(v)}" for k, v in d["label_mix_overall"].items())
+        lines += [
+            "",
+            f"Label mix over all records: {mix}. Label gap is the largest absolute difference "
+            "between a split's label share and the overall share.",
+        ]
+    return "\n".join(lines) + "\n"
