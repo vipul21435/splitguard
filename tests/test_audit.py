@@ -92,17 +92,18 @@ def test_record_counts_match_brute_force_on_random_data():
     sets = [shingles(normalize(v[0]), 4) for v in ds.values]
     n = len(ds)
     for kind in ("exact", "near"):
+
         def linked(i, j, kind=kind):
             if kind == "exact":
                 return normalize(ds.values[i][0]) == normalize(ds.values[j][0])
             return jaccard(sets[i], sets[j]) >= 0.7
+
         res = rep.result(kind)
         for s, t in itertools.permutations(range(3), 2):
             expect_rec = {
                 j
                 for j in range(n)
-                if ds.split[j] == t
-                and any(ds.split[i] == s and linked(i, j) for i in range(n))
+                if ds.split[j] == t and any(ds.split[i] == s and linked(i, j) for i in range(n))
             }
             assert set(rep.leaked(t, s, kind).tolist()) == expect_rec
             pairs = [
@@ -119,3 +120,17 @@ def test_unknown_kind_rejected():
     ds = from_rows([("a", [{"t": "x"}]), ("b", [{"t": "y"}])], ["t"])
     with pytest.raises(ValueError, match="unknown"):
         audit(ds, AuditConfig(kinds=("exact", "fuzzy")))
+
+
+def test_list_valued_answers_and_field_subset():
+    train = [{"q": "who wrote hamlet", "a": ["Shakespeare", "William Shakespeare"]}]
+    test = [
+        {"q": "who wrote macbeth", "a": ["william shakespeare"]},
+        {"q": "capital of peru", "a": ["Lima"]},
+    ]
+    ds = from_rows([("train", train), ("test", test)], ["q", "a"])
+    rep = audit(ds, AuditConfig(kinds=("field",), field_names=("a",)))
+    assert [ds.ids[i] for i in rep.leaked(1, 0, "field")] == ["test:0"]
+    assert rep.to_dict()["settings"]["field_names"] == ["a"]
+    with pytest.raises(ValueError, match="not text fields"):
+        audit(ds, AuditConfig(kinds=("field",), field_names=("answer",)))

@@ -26,7 +26,7 @@ from typing import Any
 
 import numpy as np
 
-from .data import Dataset
+from .data import LIST_SEP, Dataset
 from .near import near_duplicate_pairs
 from .text import normalize, shingles
 
@@ -44,6 +44,7 @@ class AuditConfig:
     num_perm: int = 128
     seed: int = 0
     min_field_chars: int = 1
+    field_names: Sequence[str] = ()
     max_examples: int = 5
     show_text: bool = True
 
@@ -56,6 +57,7 @@ class AuditConfig:
             "num_perm": self.num_perm,
             "seed": self.seed,
             "min_field_chars": self.min_field_chars,
+            "field_names": list(self.field_names),
         }
 
 
@@ -109,12 +111,9 @@ def near_links(ds: Dataset, cfg: AuditConfig, exact: Links | None = None) -> Lin
     """Near-duplicate links: LSH over the distinct normalised records, then exact Jaccard."""
     exact = exact_links(ds) if exact is None else exact
     sets = [
-        shingles(key.replace(FIELD_SEP, " "), cfg.shingle_n, cfg.shingle_unit)
-        for key in exact.keys
+        shingles(key.replace(FIELD_SEP, " "), cfg.shingle_n, cfg.shingle_unit) for key in exact.keys
     ]
-    pairs = near_duplicate_pairs(
-        sets, cfg.threshold, num_perm=cfg.num_perm, seed=cfg.seed
-    )
+    pairs = near_duplicate_pairs(sets, cfg.threshold, num_perm=cfg.num_perm, seed=cfg.seed)
     return Links("near", exact.rec, exact.cls, exact.keys, pairs.left, pairs.right, pairs.sim)
 
 
@@ -123,10 +122,16 @@ def group_links(ds: Dataset, column: str) -> Links:
     return _classes_from_keys(f"group:{column}", [[v] if v is not None else [] for v in values])
 
 
-def field_links(ds: Dataset, min_chars: int = 1) -> Links:
+def field_links(ds: Dataset, min_chars: int = 1, fields: Sequence[str] | None = None) -> Links:
+    """Shared field values; a list-valued field contributes each of its items."""
+    names = list(ds.fields) if not fields else list(fields)
+    missing = [f for f in names if f not in ds.fields]
+    if missing:
+        raise ValueError(f"field kind: {missing} are not text fields {ds.fields}")
+    pos = [ds.fields.index(f) for f in names]
     keys_per_record = []
     for values in ds.values:
-        keys = [normalize(v) for v in values]
+        keys = [normalize(item) for p in pos for item in values[p].split(LIST_SEP)]
         keys_per_record.append([k for k in keys if len(k) >= max(min_chars, 1)])
     return _classes_from_keys("field", keys_per_record)
 
@@ -146,8 +151,8 @@ def build_links(ds: Dataset, cfg: AuditConfig) -> list[Links]:
         out.append(near_links(ds, cfg, exact))
     if "group" in cfg.kinds:
         out.extend(group_links(ds, g) for g in ds.groups)
-    if "field" in cfg.kinds and len(ds.fields) >= 2:
-        out.append(field_links(ds, cfg.min_field_chars))
+    if "field" in cfg.kinds and (len(ds.fields) >= 2 or cfg.field_names):
+        out.append(field_links(ds, cfg.min_field_chars, cfg.field_names))
     return out
 
 
@@ -203,9 +208,7 @@ def _pair_counts(
             m = int(np.dot(lab_tot[:, s], lab_tot[:, t]))
             if len(u):
                 p += int(np.dot(counts[u, s], counts[v, t]) + np.dot(counts[v, s], counts[u, t]))
-                a += int(
-                    np.sum(lab[u, s, :] * lab[v, t, :]) + np.sum(lab[v, s, :] * lab[u, t, :])
-                )
+                a += int(np.sum(lab[u, s, :] * lab[v, t, :]) + np.sum(lab[v, s, :] * lab[u, t, :]))
                 m += int(
                     np.dot(lab_tot[u, s], lab_tot[v, t]) + np.dot(lab_tot[v, s], lab_tot[u, t])
                 )

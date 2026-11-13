@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Any
 
 SUPPORTED_SUFFIXES = (".jsonl", ".ndjson", ".json", ".csv", ".tsv", ".parquet")
+#: Separator placed between the items of a list-valued text field.
+LIST_SEP = "\x1e"
 
 
 @dataclass
@@ -48,6 +50,8 @@ def _as_text(value: Any) -> str:
         return ""
     if isinstance(value, float) and value != value:  # NaN from CSV/Parquet readers
         return ""
+    if isinstance(value, (list, tuple)):
+        return LIST_SEP.join(_as_text(v) for v in value)
     return value if isinstance(value, str) else str(value)
 
 
