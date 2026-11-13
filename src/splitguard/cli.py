@@ -14,8 +14,15 @@ import numpy as np
 from . import __version__
 from .audit import AuditConfig, audit, build_links
 from .data import Dataset, load_splits, parse_split_spec, read_rows
+from .effect import EffectConfig, measure_effect
 from .graph import ComponentSummary, link_components
-from .report import audit_markdown, components_markdown, dumps, resplit_markdown
+from .report import (
+    audit_markdown,
+    components_markdown,
+    dumps,
+    effect_markdown,
+    resplit_markdown,
+)
 from .resplit import parse_sizes, resplit
 
 
@@ -168,6 +175,24 @@ def cmd_resplit(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_effect(args: argparse.Namespace) -> int:
+    if not args.label_field:
+        raise SystemExit("effect needs --label")
+    ds = _load(args)
+    cfg = EffectConfig(
+        train=args.train,
+        test=args.test,
+        C=args.C,
+        bits=args.bits,
+        max_iter=args.max_iter,
+        label_weight=args.label_weight,
+        seed=args.seed,
+    )
+    d = measure_effect(ds, _config(args), cfg)
+    _emit(dumps(d) if args.format == "json" else effect_markdown(d), args.out)
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="splitguard",
@@ -206,6 +231,18 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument("--out-dir", help="write <split>.jsonl files and assignment.csv here")
     p.set_defaults(func=cmd_resplit)
+
+    p = sub.add_parser("effect", help="score a baseline on leaked, clean and re-split test data")
+    _add_input(p)
+    _add_links(p)
+    _add_output(p)
+    p.add_argument("--train", help="training split name (default: the first)")
+    p.add_argument("--test", help="test split name (default: the last)")
+    p.add_argument("--C", type=float, default=1.0, help="inverse L2 strength (default 1)")
+    p.add_argument("--bits", type=int, default=20, help="feature hash bits (default 20)")
+    p.add_argument("--max-iter", type=int, default=300, help="L-BFGS iterations (default 300)")
+    p.add_argument("--label-weight", type=float, default=1.0, help="label balance in re-split")
+    p.set_defaults(func=cmd_effect)
     return parser
 
 

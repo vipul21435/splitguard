@@ -128,3 +128,45 @@ def resplit_markdown(d: dict[str, Any]) -> str:
             "between a split's label share and the overall share.",
         ]
     return "\n".join(lines) + "\n"
+
+
+def _acc(s: dict[str, Any]) -> str:
+    if s["accuracy"] is None:
+        return f"- (n = {s['n']})"
+    lo, hi = s["ci95"]
+    return f"{100 * s['accuracy']:.2f} % [{100 * lo:.2f}, {100 * hi:.2f}] (n = {s['n']})"
+
+
+def _dif(s: dict[str, Any]) -> str:
+    if s["difference"] is None:
+        return "-"
+    lo, hi = s["ci95"]
+    return f"{100 * s['difference']:+.2f} points [{100 * lo:+.2f}, {100 * hi:+.2f}]"
+
+
+def effect_markdown(d: dict[str, Any]) -> str:
+    o, r = d["original"], d["resplit"]
+    lines = [
+        "# Effect of the leak on one weak baseline",
+        "",
+        f"Model: {d['note']}. Trained on `{d['train']}` ({d['records']['train']} records), "
+        f"scored on `{d['test']}` ({d['records']['test']} records), of which "
+        f"{d['test_leaked_records']} ({_pct(d['test_leaked_share'])}) have a linked record "
+        "in the training split.",
+        "",
+        "| scored on | accuracy, 95 % interval | majority-class rate |",
+        "|---|---|---:|",
+        f"| original test, all | {_acc(o['test'])} | {_pct(o['majority_class_rate'])} |",
+        f"| original test, leaked records | {_acc(o['leaked'])} | |",
+        f"| original test, clean records | {_acc(o['clean'])} | |",
+        f"| re-split test (no crossing components) | {_acc(r['test'])} | "
+        f"{_pct(r['majority_class_rate'])} |",
+        "",
+        f"Leaked minus clean: {_dif(o['leaked_minus_clean'])}.",
+        f"Original minus re-split: {_dif(d['original_minus_resplit'])}.",
+        "",
+        "The re-split pools both splits and moves whole components, so its test set differs "
+        "from the original one in more ways than the leak; read the second difference with "
+        "that in mind.",
+    ]
+    return "\n".join(lines) + "\n"

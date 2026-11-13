@@ -73,3 +73,11 @@ def test_resplit_one_file_needs_sizes(tmp_path, capsys):
     assert main(["resplit", *one, "--sizes", "a=0.5,b=0.5", "--format", "json"]) == 0
     d = json.loads(capsys.readouterr().out)
     assert [row["split"] for row in d["splits"]] == ["a", "b"]
+
+
+def test_effect_command(capsys):
+    assert main(["effect", *toy_args("--threshold", "0.7", "--bits", "12")]) == 0
+    md = capsys.readouterr().out
+    assert "original test, leaked records" in md
+    with pytest.raises(SystemExit):
+        main(["effect", str(TOY / "train.jsonl"), str(TOY / "test.jsonl"), "--text", "q1"])
