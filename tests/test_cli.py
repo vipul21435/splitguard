@@ -34,3 +34,13 @@ def test_audit_markdown_and_json(tmp_path, capsys):
     assert kinds == ["exact", "near", "group:topic", "field"]
     assert "key" not in d["kinds"][0]["examples"][0]
     assert d["kinds"][0]["examples"][0]["members"] == {"train": ["tr1"], "test": ["te1"]}
+
+
+def test_components_command(tmp_path, capsys):
+    labels = tmp_path / "labels.csv"
+    args = ["components", *toy_args("--threshold", "0.7", "--write-labels", str(labels))]
+    assert main(args) == 0
+    md = capsys.readouterr().out
+    assert "Components that cross a split boundary" in md
+    rows = labels.read_text().splitlines()
+    assert rows[0] == "id,split,component" and len(rows) == 14

@@ -70,3 +70,34 @@ def audit_markdown(d: dict[str, Any]) -> str:
 
 def dumps(d: dict[str, Any]) -> str:
     return json.dumps(d, indent=2, ensure_ascii=False) + "\n"
+
+
+def components_markdown(d: dict[str, Any]) -> str:
+    c = d["crossing"]
+    lines = [
+        "# Record graph",
+        "",
+        f"{d['records']} records, {d['components']} components ({d['singletons']} singletons), "
+        f"largest component {d['largest']} records.",
+        "",
+        f"Components that cross a split boundary: {c['components']}, holding {c['records']} "
+        f"records; the largest has {c['largest']} records.",
+        "",
+        "| split | records | in crossing components | share |",
+        "|---|---:|---:|---:|",
+    ]
+    for row in c["by_split"]:
+        lines.append(
+            f"| {row['split']} | {row['records']} | {row['in_crossing']} | {_pct(row['share'])} |"
+        )
+    lines += ["", "| component size | components |", "|---|---:|"]
+    lines += [f"| {k} | {v} |" for k, v in d["size_histogram"].items()]
+    if d["largest_crossing"]:
+        lines += ["", "## Largest crossing components", ""]
+        for comp in d["largest_crossing"]:
+            split_counts = ", ".join(f"{k} {v}" for k, v in comp["by_split"].items())
+            more = " ..." if comp["size"] > len(comp["ids"]) else ""
+            lines.append(
+                f"- {comp['size']} records ({split_counts}): {', '.join(comp['ids'])}{more}"
+            )
+    return "\n".join(lines) + "\n"
