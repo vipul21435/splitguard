@@ -227,7 +227,7 @@ def _examples(links: Links, ds: Dataset, split: np.ndarray, cfg: AuditConfig) ->
         return out
 
     def show(c: int) -> str:
-        return links.keys[c].replace(FIELD_SEP, " | ")[:120]
+        return links.keys[c].replace(FIELD_SEP, " / ")[:120]
 
     own = np.left_shift(np.int64(1), split)
     presence = np.zeros(links.n_classes, np.int64)

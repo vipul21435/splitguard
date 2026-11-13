@@ -1,0 +1,5 @@
+{"id": "te1", "q1": "how do I boil an egg", "q2": "What is the best way to boil eggs??", "label": 1, "topic": "cooking"}
+{"id": "te2", "q1": "Why is the sky blue?", "q2": "Why are sunsets red?", "label": 0, "topic": "physics"}
+{"id": "te3", "q1": "How many moons does Jupiter have today?", "q2": "What is the largest moon of Saturn?", "label": 0, "topic": "space"}
+{"id": "te4", "q1": "What is a vector space?", "q2": "How are matrices multiplied?", "label": 0, "topic": "algebra"}
+{"id": "te5", "q1": "Is chess a sport?", "q2": "Should chess be in the Olympics?", "label": 1, "topic": "games"}

@@ -1,0 +1,8 @@
+{"id": "tr1", "q1": "How do I boil an egg?", "q2": "What is the best way to boil eggs?", "label": 1, "topic": "cooking"}
+{"id": "tr2", "q1": "Why is the sky blue?", "q2": "What makes the sky look blue?", "label": 1, "topic": "physics"}
+{"id": "tr3", "q1": "How far is the moon?", "q2": "How hot is the sun?", "label": 0, "topic": "space"}
+{"id": "tr4", "q1": "What is a prime number?", "q2": "How do I find prime numbers below 100?", "label": 0, "topic": "maths"}
+{"id": "tr5", "q1": "How do I learn to swim as an adult?", "q2": "Can adults learn to swim?", "label": 1, "topic": "sport"}
+{"id": "tr6", "q1": "Which bread rises fastest?", "q2": "How long should dough rest?", "label": 0, "topic": "cooking"}
+{"id": "tr7", "q1": "What is the speed of light?", "q2": "How fast does light travel in a vacuum?", "label": 1, "topic": "physics"}
+{"id": "tr8", "q1": "How many moons does Jupiter have?", "q2": "What is the largest moon of Saturn?", "label": 0, "topic": "space"}
